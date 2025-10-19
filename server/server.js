@@ -1,28 +1,43 @@
-// server.js
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 
 import connectDB from "./config/db.js";
 import authRouter from "./routes/authRoute.js";
-dotenv.config(); // Load environment variables
+import itemRouter from "./routes/itemRoute.js";
+import orderRouter from "./routes/ordersRoute.js";
 
-// ✅ Connect to MongoDB
-connectDB();
+dotenv.config(); // Load environment variables
+connectDB(); // ✅ Connect to MongoDB
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// ✅ Middleware
-app.use(express.json());
+// ✅ Middleware must come first
+app.use(
+  cors({
+    origin: "http://localhost:3000", // React app URL
+    credentials: true,
+  })
+);
+app.use(express.json()); // parse JSON body
+
+// ✅ Routes
+app.use("/api/items", itemRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/orders", orderRouter);
 
 // ✅ Test route
-// API END POINT
 app.get("/", (req, res) => {
   res.send("🚀 Server is running successfully!");
 });
-app.use("/api/auth", authRouter);
+
+// ✅ Catch-all 404 (must come last)
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found", url: req.originalUrl });
+});
 
 // ✅ Start server
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
 });
