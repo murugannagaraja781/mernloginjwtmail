@@ -1,4 +1,4 @@
-const API = "http://localhost:3002/api";
+const API = "https://mernloginjwtmail-1.onrender.com/";
 
 export async function apiFetch(path, opts = {}) {
   const headers = opts.headers || {};
