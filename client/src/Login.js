@@ -1,6 +1,13 @@
 import React, { useState } from "react";
-import { apiFetch } from "./api";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "./api";
+import {
+  Card,
+  CardBody,
+  Typography,
+  Input,
+  Button,
+} from "@material-tailwind/react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,13 +25,8 @@ export default function Login() {
 
       if (res.success && res.token) {
         localStorage.setItem("token", res.token);
-
-        // If backend doesn’t return user info, you can store email as a placeholder
         localStorage.setItem("user", JSON.stringify({ email }));
-
-        setMsg("Logged in");
-
-        // Redirect (choose admin or normal user if you store role somewhere)
+        setMsg("Logged in successfully");
         nav("/pos");
       } else {
         setMsg(res.message || "Invalid credentials");
@@ -36,35 +38,51 @@ export default function Login() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Login</h2>
-      <form onSubmit={submit}>
-        <div>
-          <input
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <input
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <button type="submit">Login</button>
-      </form>
-      <p style={{ color: "red" }}>{msg}</p>
-      <p>
-        <span
-          style={{ color: "blue", cursor: "pointer" }}
-          onClick={() => nav("/register")}
-        >
-          Register
-        </span>
-      </p>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardBody className="p-6 flex flex-col gap-4">
+          <Typography variant="h4" color="blue-gray" className="text-center">
+            Login
+          </Typography>
+
+          {msg && (
+            <Typography color="red" className="text-center text-sm">
+              {msg}
+            </Typography>
+          )}
+
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            <Button type="submit" className="mt-2">
+              Login
+            </Button>
+          </form>
+
+          <Typography variant="small" className="mt-2 text-center">
+            Don't have an account?{" "}
+            <span
+              className="text-blue-500 cursor-pointer hover:underline"
+              onClick={() => nav("/register")}
+            >
+              Register
+            </span>
+          </Typography>
+        </CardBody>
+      </Card>
     </div>
   );
 }

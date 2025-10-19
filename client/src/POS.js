@@ -1,10 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "./api";
+import {
+  Card,
+  CardBody,
+  Typography,
+  Button,
+  Input,
+  Navbar,
+  Avatar,
+  Menu,
+  MenuHandler,
+  MenuList,
+  MenuItem,
+} from "@material-tailwind/react";
 
-export default function POS() {
+export default function POS({ user, onLogout }) {
   const [items, setItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [tax, setTax] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -42,30 +56,26 @@ export default function POS() {
   const total = subtotal + Number(tax);
 
   const createOrder = async () => {
-    const subtotal = cart.reduce((s, c) => s + c.sellPrice * c.qty, 0);
-    const total = subtotal + Number(tax);
-
     const res = await apiFetch("/orders", {
       method: "POST",
-      body: JSON.stringify({ items: cart, total }), // ✅ send total
+      body: JSON.stringify({ items: cart, total }),
     });
 
     if (res.order?._id) {
-      // Print receipt (your existing code)
       const receiptHtml = `
-      <div>
-        <h3>Receipt</h3>
-        <div>${new Date().toLocaleString()}</div>
-        ${cart
-          .map(
-            (c) => `<div>${c.name} x ${c.qty} — ₹${c.sellPrice * c.qty}</div>`
-          )
-          .join("")}
-        <div>Subtotal: ₹${subtotal}</div>
-        <div>Tax: ₹${tax}</div>
-        <div><b>Total: ₹${total}</b></div>
-      </div>
-    `;
+        <div>
+          <h3>Receipt</h3>
+          <div>${new Date().toLocaleString()}</div>
+          ${cart
+            .map(
+              (c) => `<div>${c.name} x ${c.qty} — ₹${c.sellPrice * c.qty}</div>`
+            )
+            .join("")}
+          <div>Subtotal: ₹${subtotal}</div>
+          <div>Tax: ₹${tax}</div>
+          <div><b>Total: ₹${total}</b></div>
+        </div>
+      `;
       const printWindow = window.open("", "_blank");
       printWindow.document.write(receiptHtml);
       printWindow.document.close();
@@ -80,64 +90,105 @@ export default function POS() {
   };
 
   return (
-    <div style={{ display: "flex", gap: 20, padding: 20 }}>
-      <div style={{ flex: 1 }}>
-        <h3>Items</h3>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 8,
-          }}
-        >
+    <div>
+      {/* Navbar */}
+      <Navbar className="sticky top-0 z-50 px-4 py-2 shadow-md bg-white">
+        <Typography variant="h5" className="text-blue-gray-900">
+          POS System
+        </Typography>
+        <div className="ml-auto flex items-center gap-4">
+          <Menu open={menuOpen} handler={setMenuOpen}>
+            <MenuHandler>
+              <Button
+                variant="text"
+                className="flex items-center gap-2 p-1 rounded-full"
+              >
+                <Avatar
+                  size="sm"
+                  variant="circular"
+                  alt="User"
+                  src={`https://ui-avatars.com/api/?name=${user?.name || "U"}`}
+                />
+                <span className="hidden sm:inline">{user?.name}</span>
+              </Button>
+            </MenuHandler>
+            <MenuList>
+              <MenuItem>{user?.email}</MenuItem>
+              <MenuItem onClick={onLogout}>Logout</MenuItem>
+            </MenuList>
+          </Menu>
+        </div>
+      </Navbar>
+
+      {/* Main Content */}
+      <div className="p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row gap-6">
+        {/* Items Grid */}
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((i) => (
-            <div
-              key={i._id}
-              style={{ padding: 8, border: "1px solid #ddd", borderRadius: 6 }}
-            >
-              <div>{i.name}</div>
-              <div>₹ {i.sellPrice}</div>
-              <button onClick={() => add(i)}>Add</button>
-            </div>
+            <Card key={i._id} className="hover:shadow-lg transition-shadow">
+              <CardBody className="space-y-2">
+                <Typography variant="h6">{i.name}</Typography>
+                <Typography color="blue-gray">₹ {i.sellPrice}</Typography>
+                <Button size="sm" onClick={() => add(i)}>
+                  Add
+                </Button>
+              </CardBody>
+            </Card>
           ))}
         </div>
-      </div>
 
-      <div style={{ width: 360, border: "1px solid #eee", padding: 12 }}>
-        <h3>Cart</h3>
-        {cart.map((c) => (
-          <div
-            key={c.itemId}
-            style={{ display: "flex", justifyContent: "space-between", gap: 8 }}
-          >
-            <div>
-              {c.name} x{" "}
-              <input
-                style={{ width: 48 }}
-                type="number"
-                value={c.qty}
-                onChange={(e) => changeQty(c.itemId, Number(e.target.value))}
-              />
+        {/* Cart Panel */}
+        <div className="w-full lg:w-96 border border-gray-200 rounded p-4 flex flex-col gap-3">
+          <Typography variant="h6">Cart</Typography>
+          {cart.map((c) => (
+            <div
+              key={c.itemId}
+              className="flex justify-between items-center gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <Typography>{c.name} x</Typography>
+                <Input
+                  type="number"
+                  value={c.qty}
+                  size="sm"
+                  className="w-16"
+                  onChange={(e) => changeQty(c.itemId, Number(e.target.value))}
+                />
+              </div>
+              <Typography>₹{c.sellPrice * c.qty}</Typography>
             </div>
-            <div>₹{c.sellPrice * c.qty}</div>
+          ))}
+          <hr />
+          <div className="flex justify-between">
+            <Typography>Subtotal:</Typography>
+            <Typography>₹{subtotal}</Typography>
           </div>
-        ))}
-        <hr />
-        <div>Subtotal: ₹{subtotal}</div>
-        <div>
-          Tax:{" "}
-          <input
-            type="number"
-            value={tax}
-            onChange={(e) => setTax(Number(e.target.value))}
-          />
+          <div className="flex justify-between items-center">
+            <Typography>Tax:</Typography>
+            <Input
+              type="number"
+              value={tax}
+              size="sm"
+              className="w-20"
+              onChange={(e) => setTax(Number(e.target.value))}
+            />
+          </div>
+          <div className="flex justify-between">
+            <Typography variant="small" className="font-bold">
+              Total:
+            </Typography>
+            <Typography variant="small" className="font-bold">
+              ₹{total}
+            </Typography>
+          </div>
+          <Button
+            onClick={createOrder}
+            disabled={!cart.length}
+            className="mt-2"
+          >
+            Create Order & Print
+          </Button>
         </div>
-        <div>
-          <b>Total: ₹{total}</b>
-        </div>
-        <button onClick={createOrder} disabled={!cart.length}>
-          Create Order & Print
-        </button>
       </div>
     </div>
   );
