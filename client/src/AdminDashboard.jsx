@@ -27,9 +27,9 @@ export default function AdminDashboard() {
   const [form, setForm] = useState({
     name: "",
     category: "",
-    sellPrice: 0,
-    costPrice: 0,
-    stock: 0,
+    sellPrice: "",
+    costPrice: "",
+    stock: "",
   });
 
   const load = async () => {
@@ -55,19 +55,28 @@ export default function AdminDashboard() {
         method: "POST",
         body: JSON.stringify(form),
       });
+
       if (res._id) {
+        // ✅ Success message
+        alert("✅ Item added successfully!");
+
+        // Reset form
         setForm({
           name: "",
           category: "",
-          sellPrice: 0,
-          costPrice: 0,
-          stock: 0,
+          sellPrice: "",
+          costPrice: "",
+          stock: "",
         });
-        load();
+
+        // ✅ Reload data (trigger GET again)
+        await load();
+      } else {
+        alert("Failed to add item. Please try again.");
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to add item");
+      alert("❌ Failed to add item");
     }
   };
 
@@ -151,11 +160,37 @@ export default function AdminDashboard() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
-              <Input
-                label="Category"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              />
+
+              <div className="relative">
+                <Input
+                  label="Category"
+                  list="category-options"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value })
+                  }
+                />
+                <datalist id="category-options">
+                  <option value="Fresh Juices" />
+                  <option value="Veg & Herbal Juices" />
+                  <option value="Milkshakes" />
+                  <option value="Lassi" />
+                  <option value="Specials" />
+                  <option value="Sandwiches" />
+                  <option value="Burgers" />
+                  <option value="Maggie & Pasta" />
+                  <option value="Egg Items" />
+                  <option value="Salads" />
+                  <option value="Quick Bites" />
+                  <option value="Chaats" />
+                  <option value="Bun Specials" />
+                  <option value="Mocktails" />
+                  <option value="Drinks" />
+                  <option value="Hot Beverages" />
+                  <option value="Chocolate Specials" />
+                </datalist>
+              </div>
+
               <Input
                 type="number"
                 label="Sell Price"
@@ -233,26 +268,42 @@ export default function AdminDashboard() {
             <CardHeader color="blue-gray" className="pb-0">
               <Typography variant="h5">Product List</Typography>
             </CardHeader>
-            <CardBody className="max-h-96 overflow-y-auto">
-              <List>
-                {items.map((i) => (
-                  <ListItem
-                    key={i._id}
-                    className="flex justify-between items-center"
+            <CardBody className="max-h-96 overflow-y-auto space-y-4">
+              {Object.entries(
+                items.reduce((acc, item) => {
+                  if (!acc[item.category]) acc[item.category] = [];
+                  acc[item.category].push(item);
+                  return acc;
+                }, {})
+              ).map(([category, products]) => (
+                <div key={category}>
+                  <Typography
+                    variant="h6"
+                    className="font-bold mb-2 text-blue-600"
                   >
-                    <Typography>
-                      {i.name} — ₹{i.sellPrice} (Stock: {i.stock})
-                    </Typography>
-                    <Button
-                      color="red"
-                      size="sm"
-                      onClick={() => deleteItem(i._id)}
-                    >
-                      Delete
-                    </Button>
-                  </ListItem>
-                ))}
-              </List>
+                    {category}
+                  </Typography>
+                  <List>
+                    {products.map((i) => (
+                      <ListItem
+                        key={i._id}
+                        className="flex justify-between items-center border-b border-gray-200"
+                      >
+                        <Typography>
+                          {i.name} — ₹{i.sellPrice} (Stock: {i.stock})
+                        </Typography>
+                        <Button
+                          color="red"
+                          size="sm"
+                          onClick={() => deleteItem(i._id)}
+                        >
+                          Delete
+                        </Button>
+                      </ListItem>
+                    ))}
+                  </List>
+                </div>
+              ))}
             </CardBody>
           </Card>
         )}
