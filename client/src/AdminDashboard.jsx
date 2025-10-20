@@ -8,10 +8,8 @@ import {
   Typography,
   List,
   ListItem,
-  Sidebar,
-  SidebarItem,
+  Alert, // ✅ Added Material Tailwind Alert
 } from "@material-tailwind/react";
-import { Chart } from "chart.js/auto";
 import { Line } from "react-chartjs-2";
 import { apiFetch } from "./api";
 
@@ -32,6 +30,8 @@ export default function AdminDashboard() {
     stock: "",
   });
 
+  const [successMsg, setSuccessMsg] = useState(""); // ✅ Success message state
+
   const load = async () => {
     try {
       const it = await apiFetch("/items");
@@ -41,7 +41,6 @@ export default function AdminDashboard() {
       if (od.orders) setOrdersData(od);
     } catch (err) {
       console.error(err);
-      alert("Failed to load data");
     }
   };
 
@@ -57,8 +56,9 @@ export default function AdminDashboard() {
       });
 
       if (res._id) {
-        // ✅ Success message
-        alert("✅ Item added successfully!");
+        // ✅ Show Material success alert
+        setSuccessMsg("Item added successfully!");
+        setTimeout(() => setSuccessMsg(""), 2500); // Hide after 2.5s
 
         // Reset form
         setForm({
@@ -71,22 +71,18 @@ export default function AdminDashboard() {
 
         // ✅ Reload data (trigger GET again)
         await load();
-      } else {
-        alert("Failed to add item. Please try again.");
       }
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to add item");
     }
   };
 
   const deleteItem = async (id) => {
     try {
       await apiFetch(`/items/${id}`, { method: "DELETE" });
-      load();
+      await load();
     } catch (err) {
       console.error(err);
-      alert("Failed to delete item");
     }
   };
 
@@ -98,7 +94,6 @@ export default function AdminDashboard() {
     { id: "logout", label: "Logout" },
   ];
 
-  // Chart Data
   const chartData = {
     labels: ordersData.orders.map((o) =>
       new Date(o.createdAt).toLocaleDateString()
@@ -114,12 +109,13 @@ export default function AdminDashboard() {
     ],
   };
 
-  const handleMenuClick = (id) => {
+  const handleMenuClick = async (id) => {
     if (id === "logout") {
       localStorage.clear();
       window.location.reload();
     } else {
       setActiveMenu(id);
+      await load(); // ✅ Reload data whenever menu is clicked
     }
   };
 
@@ -128,16 +124,18 @@ export default function AdminDashboard() {
       {/* Sidebar */}
       <div
         style={{ backgroundColor: "lightblue" }}
-        className="w-60 bg-blue-gray-800 text-white flex flex-col"
+        className="w-60 text-white flex flex-col"
       >
-        <div className="p-4 text-xl font-bold text-center">Admin Panel</div>
+        <div className="p-4 text-xl font-bold text-center text-blue-gray-900">
+          Admin Panel
+        </div>
         <List>
           {menuItems.map((m) => (
             <ListItem
               key={m.id}
               className={`cursor-pointer ${
-                activeMenu === m.id ? "bg-blue-600" : ""
-              } hover:bg-blue-700`}
+                activeMenu === m.id ? "bg-blue-600 text-white" : "text-black"
+              } hover:bg-blue-500 hover:text-white transition-colors`}
               onClick={() => handleMenuClick(m.id)}
             >
               {m.label}
@@ -148,10 +146,17 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-6 bg-gray-50">
+        {/* ✅ Success Toast */}
+        {successMsg && (
+          <Alert color="green" className="rounded-md shadow-md">
+            {successMsg}
+          </Alert>
+        )}
+
         {/* Add Item */}
         {activeMenu === "add-item" && (
           <Card>
-            <CardHeader color="blue-gray" className="pb-0">
+            <CardHeader color="green" className="pb-0">
               <Typography variant="h5">Add Item</Typography>
             </CardHeader>
             <CardBody className="space-y-4">
@@ -215,7 +220,7 @@ export default function AdminDashboard() {
                   setForm({ ...form, stock: Number(e.target.value) })
                 }
               />
-              <Button fullWidth onClick={addItem}>
+              <Button fullWidth color="green" onClick={addItem}>
                 Add Item
               </Button>
             </CardBody>
@@ -225,7 +230,7 @@ export default function AdminDashboard() {
         {/* Revenue */}
         {activeMenu === "revenue" && (
           <Card>
-            <CardHeader color="blue-gray" className="pb-0">
+            <CardHeader color="blue" className="pb-0">
               <Typography variant="h5">Revenue Chart</Typography>
             </CardHeader>
             <CardBody>
@@ -241,7 +246,7 @@ export default function AdminDashboard() {
         {/* Recent Sales */}
         {activeMenu === "recent-sales" && (
           <Card>
-            <CardHeader color="blue-gray" className="pb-0">
+            <CardHeader color="amber" className="pb-0">
               <Typography variant="h5">Recent Sales</Typography>
             </CardHeader>
             <CardBody className="space-y-2 max-h-96 overflow-y-auto">
@@ -262,10 +267,10 @@ export default function AdminDashboard() {
           </Card>
         )}
 
-        {/* Product List */}
+        {/* Product List (Grouped by Category) */}
         {activeMenu === "product-list" && (
           <Card>
-            <CardHeader color="blue-gray" className="pb-0">
+            <CardHeader color="purple" className="pb-0">
               <Typography variant="h5">Product List</Typography>
             </CardHeader>
             <CardBody className="max-h-96 overflow-y-auto space-y-4">
