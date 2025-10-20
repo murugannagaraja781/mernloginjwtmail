@@ -15,7 +15,7 @@ const app = express();
 // ✅ Middleware must come first
 app.use(
   cors({
-    origin: "https://mernloginjwtmail-1.onrender.com", // React app URL
+    origin: "https://mernloginjwtmail.vercel.app", // React app URL
     credentials: true,
   })
 );
