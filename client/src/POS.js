@@ -13,8 +13,14 @@ import {
   MenuList,
   MenuItem,
 } from "@material-tailwind/react";
+import { useNavigate } from "react-router-dom";
 
 export default function POS({ user, onLogout }) {
+  const navigate = useNavigate();
+
+  const goToDashboard = () => {
+    navigate("/admin");
+  };
   const [items, setItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [tax, setTax] = useState(0);
@@ -114,6 +120,8 @@ export default function POS({ user, onLogout }) {
             </MenuHandler>
             <MenuList>
               <MenuItem>{user?.email}</MenuItem>
+              <MenuItem onClick={goToDashboard}>Dashboard</MenuItem>
+
               <MenuItem onClick={onLogout}>Logout</MenuItem>
             </MenuList>
           </Menu>
