@@ -27,21 +27,13 @@ export const register = async (req, res) => {
       expiresIn: "7d",
     });
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    const mailOptions = {
-      from: process.env.SENDER_MAILID,
-      to: email,
-      subject: "Welcome to Our Platform!",
-      text: `Hello ${name},\n\nWelcome to our platform! We're excited to have you on board.\n\nBest regards,\nThe Team`,
-    };
-
-    await transporter.sendMail(mailOptions);
+    // REMOVE THIS COOKIE PART
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //   maxAge: 7 * 24 * 60 * 60 * 1000,
+    // });
 
     return res.json({
       success: true,

@@ -133,6 +133,8 @@ export default function Register() {
     setMsg({ text: "", type: "" });
 
     try {
+      console.log("Sending registration request...");
+
       const res = await apiFetch("/auth/register", {
         method: "POST",
         body: JSON.stringify({
@@ -141,6 +143,8 @@ export default function Register() {
           password: formData.password,
         }),
       });
+
+      console.log("Registration response:", res);
 
       if (res.success) {
         setMsg({
@@ -163,7 +167,7 @@ export default function Register() {
         }, 2000);
       } else {
         setMsg({
-          text: res.msg || "❌ Registration failed. Please try again.",
+          text: res.message || "❌ Registration failed. Please try again.",
           type: "error",
         });
       }
