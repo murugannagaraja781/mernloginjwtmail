@@ -228,6 +228,7 @@ export default function POS({ user, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
 
   const {
     cart,
@@ -290,11 +291,29 @@ export default function POS({ user, onLogout }) {
     try {
       const res = await apiFetch("/orders", {
         method: "POST",
-        body: JSON.stringify({ items: cart, total, tax: Number(tax) }),
+        body: JSON.stringify({
+          items: cart,
+          total,
+          tax: Number(tax),
+        }),
       });
 
       if (res.order?._id) {
+        // Store cart data for receipt before clearing
+        const receiptData = {
+          cart: [...cart], // Create a copy of the cart
+          subtotal,
+          tax: Number(tax),
+          total,
+          orderId:
+            res.order._id ||
+            Math.random().toString(36).substr(2, 9).toUpperCase(),
+          timestamp: new Date().toLocaleString(),
+        };
+
         setPrintDialogOpen(true);
+        // Store receipt data in state or ref for printing
+        setReceiptData(receiptData);
         clearCart();
         setTax(0);
       } else {
@@ -309,92 +328,127 @@ export default function POS({ user, onLogout }) {
   };
 
   const printReceipt = () => {
+    if (!receiptData) {
+      alert("No receipt data available");
+      return;
+    }
+
+    const {
+      cart: receiptCart,
+      subtotal: receiptSubtotal,
+      tax: receiptTax,
+      total: receiptTotal,
+      orderId,
+      timestamp,
+    } = receiptData;
+
     const receiptHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Receipt - Pluto Café</title>
-        <style>
-          body {
-            font-family: 'Courier New', monospace;
-            max-width: 300px;
-            margin: 0 auto;
-            padding: 20px;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 2px dashed #000;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-          }
-          .item {
-            display: flex;
-            justify-content: space-between;
-            margin: 5px 0;
-          }
-          .total {
-            border-top: 2px dashed #000;
-            padding-top: 10px;
-            font-weight: bold;
-            margin-top: 15px;
-          }
-          .thank-you {
-            text-align: center;
-            margin-top: 20px;
-            font-style: italic;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Pluto Café</h2>
-          <p>${new Date().toLocaleString()}</p>
-          <p>Order ID: ${Math.random()
-            .toString(36)
-            .substr(2, 9)
-            .toUpperCase()}</p>
-        </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt - Pluto Café</title>
+      <style>
+        body {
+          font-family: 'Courier New', monospace;
+          max-width: 300px;
+          margin: 0 auto;
+          padding: 20px;
+          background: white;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 2px dashed #000;
+          padding-bottom: 10px;
+          margin-bottom: 15px;
+        }
+        .item {
+          display: flex;
+          justify-content: space-between;
+          margin: 5px 0;
+          font-size: 14px;
+        }
+        .total {
+          border-top: 2px dashed #000;
+          padding-top: 10px;
+          font-weight: bold;
+          margin-top: 15px;
+        }
+        .thank-you {
+          text-align: center;
+          margin-top: 20px;
+          font-style: italic;
+        }
+        .divider {
+          border-top: 1px dashed #ccc;
+          margin: 10px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2 style="margin: 0; font-size: 24px;">Pluto Café</h2>
+        <p style="margin: 5px 0; font-size: 12px;">${timestamp}</p>
+        <p style="margin: 5px 0; font-size: 12px;">Order: ${orderId}</p>
+      </div>
 
-        ${cart
-          .map(
-            (item) => `
-          <div class="item">
-            <span>${item.name} x${item.qty}</span>
-            <span>₹${(item.sellPrice * item.qty).toFixed(2)}</span>
-          </div>
-        `
-          )
-          .join("")}
+      <div class="divider"></div>
 
+      ${receiptCart
+        .map(
+          (item) => `
         <div class="item">
-          <span>Subtotal:</span>
-          <span>₹${subtotal.toFixed(2)}</span>
+          <span>${item.name} x${item.qty}</span>
+          <span>₹${(item.sellPrice * item.qty).toFixed(2)}</span>
         </div>
-        <div class="item">
-          <span>Tax:</span>
-          <span>₹${Number(tax).toFixed(2)}</span>
-        </div>
-        <div class="item total">
-          <span>TOTAL:</span>
-          <span>₹${total.toFixed(2)}</span>
-        </div>
+      `
+        )
+        .join("")}
 
-        <div class="thank-you">
-          <p>Thank you for your visit!</p>
-        </div>
-      </body>
-      </html>
-    `;
+      <div class="divider"></div>
+
+      <div class="item">
+        <span>Subtotal:</span>
+        <span>₹${receiptSubtotal.toFixed(2)}</span>
+      </div>
+      <div class="item">
+        <span>Tax:</span>
+        <span>₹${receiptTax.toFixed(2)}</span>
+      </div>
+      <div class="item total">
+        <span>TOTAL:</span>
+        <span>₹${receiptTotal.toFixed(2)}</span>
+      </div>
+
+      <div class="thank-you">
+        <p style="margin: 0; font-size: 12px;">Thank you for your visit!</p>
+        <p style="margin: 5px 0; font-size: 10px;">Visit us again!</p>
+      </div>
+    </body>
+    </html>
+  `;
 
     const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow pop-ups for printing receipts");
+      return;
+    }
+
     printWindow.document.write(receiptHtml);
     printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
+
+    // Wait for content to load before printing
+    printWindow.onload = () => {
+      printWindow.focus();
       printWindow.print();
-      printWindow.close();
-      setPrintDialogOpen(false);
-    }, 250);
+
+      // Close window after printing
+      setTimeout(() => {
+        printWindow.close();
+        setPrintDialogOpen(false);
+        // Clear receipt data after printing
+        setReceiptData(null);
+      }, 500);
+    };
   };
 
   const goToDashboard = () => {
@@ -768,10 +822,7 @@ export default function POS({ user, onLogout }) {
 
       {/* Print Success Dialog */}
       <Dialog open={printDialogOpen} handler={setPrintDialogOpen}>
-        <DialogHeader className="flex items-center gap-2">
-          <PrintIcon />
-          Order Created Successfully!
-        </DialogHeader>
+        <DialogHeader>Order Created Successfully!</DialogHeader>
         <DialogBody>
           <Typography>
             Your order has been created successfully. Would you like to print
