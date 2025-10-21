@@ -16,6 +16,8 @@ import {
   DialogFooter,
   Select,
   Option,
+  Chip,
+  IconButton,
 } from "@material-tailwind/react";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
 import {
@@ -47,6 +49,41 @@ ChartJS.register(
   Filler
 );
 
+// Icons
+const EditIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-4 w-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
+  </svg>
+);
+
+const RestockIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-4 w-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+);
+
 export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [items, setItems] = useState([]);
@@ -67,6 +104,15 @@ export default function AdminDashboard() {
   const [deleteDialog, setDeleteDialog] = useState({
     open: false,
     category: "",
+  });
+  const [editDialog, setEditDialog] = useState({
+    open: false,
+    item: null,
+  });
+  const [restockDialog, setRestockDialog] = useState({
+    open: false,
+    item: null,
+    quantity: 0,
   });
 
   // ✅ Load items and orders
@@ -121,6 +167,59 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       setSuccessMsg("❌ Failed to add item");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } finally {
+      setLoading((prev) => ({ ...prev, action: false }));
+    }
+  };
+
+  // ✅ Update item
+  const updateItem = async () => {
+    if (!editDialog.item) return;
+
+    try {
+      setLoading((prev) => ({ ...prev, action: true }));
+      const res = await apiFetch(`/items/${editDialog.item._id}`, {
+        method: "PUT",
+        body: JSON.stringify(editDialog.item),
+      });
+      if (res._id) {
+        setSuccessMsg("✅ Item updated successfully!");
+        setTimeout(() => setSuccessMsg(""), 2500);
+        setEditDialog({ open: false, item: null });
+        await load();
+      }
+    } catch (err) {
+      console.error(err);
+      setSuccessMsg("❌ Failed to update item");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } finally {
+      setLoading((prev) => ({ ...prev, action: false }));
+    }
+  };
+
+  // ✅ Restock item
+  const restockItem = async () => {
+    if (!restockDialog.item || !restockDialog.quantity) return;
+
+    try {
+      setLoading((prev) => ({ ...prev, action: true }));
+      const newStock = restockDialog.item.stock + restockDialog.quantity;
+      const res = await apiFetch(`/items/${restockDialog.item._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ stock: newStock }),
+      });
+      if (res._id) {
+        setSuccessMsg(
+          `✅ Restocked ${restockDialog.item.name} with ${restockDialog.quantity} units!`
+        );
+        setTimeout(() => setSuccessMsg(""), 2500);
+        setRestockDialog({ open: false, item: null, quantity: 0 });
+        await load();
+      }
+    } catch (err) {
+      console.error(err);
+      setSuccessMsg("❌ Failed to restock item");
       setTimeout(() => setSuccessMsg(""), 3000);
     } finally {
       setLoading((prev) => ({ ...prev, action: false }));
@@ -188,6 +287,13 @@ export default function AdminDashboard() {
   const totalOrders = ordersData.orders.length;
   const totalProducts = items.length;
   const lowStockItems = items.filter((item) => item.stock < 10).length;
+  const outOfStockItems = items.filter((item) => item.stock === 0).length;
+
+  // ✅ Calculate stock value
+  const totalStockValue = items.reduce((sum, item) => {
+    const cost = item.costPrice || item.sellPrice * 0.6; // Estimate cost if not available
+    return sum + item.stock * cost;
+  }, 0);
 
   // ✅ Get unique categories
   const categories = [...new Set(items.map((item) => item.category))];
@@ -287,12 +393,16 @@ export default function AdminDashboard() {
     };
   };
 
+  // ✅ Stock Alert Items
+  const stockAlerts = items.filter((item) => item.stock < 10).slice(0, 5);
+
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "add-item", label: "Add Product", icon: "➕" },
     { id: "revenue", label: "Revenue Analytics", icon: "💰" },
     { id: "recent-sales", label: "Recent Sales", icon: "🛒" },
     { id: "product-list", label: "Inventory", icon: "📦" },
+    { id: "stock-management", label: "Stock Management", icon: "🔄" },
     { id: "category-management", label: "Category Management", icon: "🏷️" },
     { id: "logout", label: "Logout", icon: "🚪" },
   ];
@@ -478,6 +588,97 @@ export default function AdminDashboard() {
                 </CardBody>
               </Card>
             </div>
+
+            {/* Additional Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+                <CardBody className="p-6">
+                  <Typography variant="h3" className="font-bold mb-2">
+                    {outOfStockItems}
+                  </Typography>
+                  <Typography variant="small" className="text-orange-100">
+                    Out of Stock
+                  </Typography>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white">
+                <CardBody className="p-6">
+                  <Typography variant="h3" className="font-bold mb-2">
+                    ₹{totalStockValue.toLocaleString()}
+                  </Typography>
+                  <Typography variant="small" className="text-cyan-100">
+                    Stock Value
+                  </Typography>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-emerald-500 to-green-500 text-white">
+                <CardBody className="p-6">
+                  <Typography variant="h3" className="font-bold mb-2">
+                    {categories.length}
+                  </Typography>
+                  <Typography variant="small" className="text-emerald-100">
+                    Categories
+                  </Typography>
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* Stock Alerts */}
+            {stockAlerts.length > 0 && (
+              <Card className="shadow-xl border-l-4 border-l-orange-500">
+                <CardHeader
+                  floated={false}
+                  shadow={false}
+                  className="bg-orange-50 p-4"
+                >
+                  <Typography
+                    variant="h5"
+                    className="text-orange-700 flex items-center gap-2"
+                  >
+                    ⚠️ Stock Alerts
+                  </Typography>
+                  <Typography variant="small" className="text-orange-600">
+                    Items running low on stock
+                  </Typography>
+                </CardHeader>
+                <CardBody className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {stockAlerts.map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200"
+                      >
+                        <div>
+                          <Typography
+                            variant="small"
+                            className="font-semibold text-gray-800"
+                          >
+                            {item.name}
+                          </Typography>
+                          <Typography
+                            variant="small"
+                            className="text-orange-600"
+                          >
+                            Stock: {item.stock}
+                          </Typography>
+                        </div>
+                        <Button
+                          size="sm"
+                          color="orange"
+                          onClick={() =>
+                            setRestockDialog({ open: true, item, quantity: 10 })
+                          }
+                        >
+                          Restock
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
 
             {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -835,32 +1036,55 @@ export default function AdminDashboard() {
                                         Cost: ₹{i.costPrice}
                                       </span>
                                     )}
-                                    <span
-                                      className={`font-semibold ${
+                                    <Chip
+                                      value={`Stock: ${i.stock}`}
+                                      size="sm"
+                                      className={`${
                                         i.stock === 0
-                                          ? "text-red-600"
+                                          ? "bg-red-500 text-white"
                                           : i.stock < 10
-                                          ? "text-orange-600"
-                                          : "text-blue-600"
+                                          ? "bg-orange-500 text-white"
+                                          : "bg-green-500 text-white"
                                       }`}
-                                    >
-                                      Stock: {i.stock}
-                                    </span>
+                                    />
                                   </div>
                                 </div>
-                                <Button
-                                  color="red"
-                                  size="sm"
-                                  onClick={() => deleteItem(i._id)}
-                                  disabled={loading.action}
-                                  className="ml-2"
-                                >
-                                  {loading.action ? (
-                                    <Spinner className="h-4 w-4" />
-                                  ) : (
-                                    "Delete"
-                                  )}
-                                </Button>
+                                <div className="flex flex-col gap-2 ml-2">
+                                  <IconButton
+                                    color="blue"
+                                    size="sm"
+                                    onClick={() =>
+                                      setEditDialog({ open: true, item: i })
+                                    }
+                                  >
+                                    <EditIcon />
+                                  </IconButton>
+                                  <IconButton
+                                    color="orange"
+                                    size="sm"
+                                    onClick={() =>
+                                      setRestockDialog({
+                                        open: true,
+                                        item: i,
+                                        quantity: 10,
+                                      })
+                                    }
+                                  >
+                                    <RestockIcon />
+                                  </IconButton>
+                                  <Button
+                                    color="red"
+                                    size="sm"
+                                    onClick={() => deleteItem(i._id)}
+                                    disabled={loading.action}
+                                  >
+                                    {loading.action ? (
+                                      <Spinner className="h-4 w-4" />
+                                    ) : (
+                                      "Delete"
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                             </CardBody>
                           </Card>
@@ -876,6 +1100,200 @@ export default function AdminDashboard() {
                   </Typography>
                   <Typography variant="small" color="gray">
                     Add your first product to get started
+                  </Typography>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Stock Management */}
+        {activeMenu === "stock-management" && (
+          <Card className="shadow-xl border-0">
+            <CardHeader
+              floated={false}
+              shadow={false}
+              className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 rounded-t-lg"
+            >
+              <Typography variant="h4" className="flex items-center gap-2">
+                🔄 Stock Management
+              </Typography>
+              <Typography variant="small" className="text-teal-100">
+                Monitor and manage product stock levels
+              </Typography>
+            </CardHeader>
+            <CardBody className="p-6">
+              {loading.items ? (
+                <div className="flex justify-center items-center h-32">
+                  <Spinner className="h-8 w-8" />
+                  <Typography variant="h6" className="ml-3">
+                    Loading stock data...
+                  </Typography>
+                </div>
+              ) : items.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Stock Alerts */}
+                  <div>
+                    <Typography variant="h5" className="mb-4 text-red-600">
+                      ⚠️ Critical Stock Alerts
+                    </Typography>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {items
+                        .filter((item) => item.stock === 0)
+                        .map((item) => (
+                          <Card
+                            key={item._id}
+                            className="border-l-4 border-l-red-500"
+                          >
+                            <CardBody className="p-4">
+                              <Typography
+                                variant="h6"
+                                className="font-semibold"
+                              >
+                                {item.name}
+                              </Typography>
+                              <Typography
+                                variant="small"
+                                className="text-red-600 font-bold"
+                              >
+                                OUT OF STOCK
+                              </Typography>
+                              <Button
+                                color="orange"
+                                size="sm"
+                                fullWidth
+                                className="mt-2"
+                                onClick={() =>
+                                  setRestockDialog({
+                                    open: true,
+                                    item,
+                                    quantity: 20,
+                                  })
+                                }
+                              >
+                                Restock Now
+                              </Button>
+                            </CardBody>
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Low Stock Items */}
+                  <div>
+                    <Typography variant="h5" className="mb-4 text-orange-600">
+                      📉 Low Stock Items
+                    </Typography>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {items
+                        .filter((item) => item.stock > 0 && item.stock < 10)
+                        .map((item) => (
+                          <Card
+                            key={item._id}
+                            className="border-l-4 border-l-orange-500"
+                          >
+                            <CardBody className="p-4">
+                              <Typography
+                                variant="h6"
+                                className="font-semibold"
+                              >
+                                {item.name}
+                              </Typography>
+                              <Typography
+                                variant="small"
+                                className="text-orange-600 font-bold"
+                              >
+                                Stock: {item.stock}
+                              </Typography>
+                              <div className="flex gap-2 mt-2">
+                                <Button
+                                  color="orange"
+                                  size="sm"
+                                  onClick={() =>
+                                    setRestockDialog({
+                                      open: true,
+                                      item,
+                                      quantity: 10,
+                                    })
+                                  }
+                                >
+                                  +10
+                                </Button>
+                                <Button
+                                  color="blue"
+                                  size="sm"
+                                  onClick={() =>
+                                    setRestockDialog({
+                                      open: true,
+                                      item,
+                                      quantity: 25,
+                                    })
+                                  }
+                                >
+                                  +25
+                                </Button>
+                              </div>
+                            </CardBody>
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Well Stocked Items */}
+                  <div>
+                    <Typography variant="h5" className="mb-4 text-green-600">
+                      ✅ Well Stocked Items
+                    </Typography>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {items
+                        .filter((item) => item.stock >= 10)
+                        .slice(0, 6)
+                        .map((item) => (
+                          <Card
+                            key={item._id}
+                            className="border-l-4 border-l-green-500"
+                          >
+                            <CardBody className="p-4">
+                              <Typography
+                                variant="h6"
+                                className="font-semibold"
+                              >
+                                {item.name}
+                              </Typography>
+                              <Typography
+                                variant="small"
+                                className="text-green-600 font-bold"
+                              >
+                                Stock: {item.stock}
+                              </Typography>
+                              <Button
+                                color="green"
+                                size="sm"
+                                fullWidth
+                                className="mt-2"
+                                onClick={() =>
+                                  setRestockDialog({
+                                    open: true,
+                                    item,
+                                    quantity: 10,
+                                  })
+                                }
+                              >
+                                Add More
+                              </Button>
+                            </CardBody>
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Typography variant="h6" color="gray" className="mb-2">
+                    No products found
+                  </Typography>
+                  <Typography variant="small" color="gray">
+                    Add products to manage stock
                   </Typography>
                 </div>
               )}
@@ -961,6 +1379,17 @@ export default function AdminDashboard() {
                                 }
                               </span>
                             </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                Out of Stock:
+                              </span>
+                              <span className="font-semibold text-red-600">
+                                {
+                                  categoryItems.filter((i) => i.stock === 0)
+                                    .length
+                                }
+                              </span>
+                            </div>
                           </div>
                           <Button
                             color="red"
@@ -1029,6 +1458,150 @@ export default function AdminDashboard() {
               <Spinner className="h-4 w-4" />
             ) : (
               "Delete Category"
+            )}
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Edit Item Dialog */}
+      <Dialog
+        open={editDialog.open}
+        handler={() => setEditDialog({ open: false, item: null })}
+        size="lg"
+      >
+        <DialogHeader>Edit Product</DialogHeader>
+        <DialogBody>
+          {editDialog.item && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Product Name"
+                value={editDialog.item.name}
+                onChange={(e) =>
+                  setEditDialog((prev) => ({
+                    ...prev,
+                    item: { ...prev.item, name: e.target.value },
+                  }))
+                }
+              />
+              <Input
+                label="Category"
+                value={editDialog.item.category}
+                onChange={(e) =>
+                  setEditDialog((prev) => ({
+                    ...prev,
+                    item: { ...prev.item, category: e.target.value },
+                  }))
+                }
+              />
+              <Input
+                type="number"
+                label="Sell Price (₹)"
+                value={editDialog.item.sellPrice}
+                onChange={(e) =>
+                  setEditDialog((prev) => ({
+                    ...prev,
+                    item: { ...prev.item, sellPrice: Number(e.target.value) },
+                  }))
+                }
+              />
+              <Input
+                type="number"
+                label="Cost Price (₹)"
+                value={editDialog.item.costPrice}
+                onChange={(e) =>
+                  setEditDialog((prev) => ({
+                    ...prev,
+                    item: { ...prev.item, costPrice: Number(e.target.value) },
+                  }))
+                }
+              />
+              <Input
+                type="number"
+                label="Stock Quantity"
+                value={editDialog.item.stock}
+                onChange={(e) =>
+                  setEditDialog((prev) => ({
+                    ...prev,
+                    item: { ...prev.item, stock: Number(e.target.value) },
+                  }))
+                }
+              />
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant="text"
+            color="gray"
+            onClick={() => setEditDialog({ open: false, item: null })}
+            className="mr-2"
+          >
+            Cancel
+          </Button>
+          <Button color="blue" onClick={updateItem} disabled={loading.action}>
+            {loading.action ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Update Product"
+            )}
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Restock Dialog */}
+      <Dialog
+        open={restockDialog.open}
+        handler={() =>
+          setRestockDialog({ open: false, item: null, quantity: 0 })
+        }
+      >
+        <DialogHeader>Restock Product</DialogHeader>
+        <DialogBody>
+          {restockDialog.item && (
+            <div className="space-y-4">
+              <Typography>
+                Restocking: <strong>{restockDialog.item.name}</strong>
+              </Typography>
+              <Typography>
+                Current Stock: <strong>{restockDialog.item.stock}</strong>
+              </Typography>
+              <Input
+                type="number"
+                label="Quantity to Add"
+                value={restockDialog.quantity}
+                onChange={(e) =>
+                  setRestockDialog((prev) => ({
+                    ...prev,
+                    quantity: Number(e.target.value),
+                  }))
+                }
+              />
+              <Typography variant="small" className="text-blue-600">
+                New Stock: {restockDialog.item.stock + restockDialog.quantity}
+              </Typography>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant="text"
+            color="gray"
+            onClick={() =>
+              setRestockDialog({ open: false, item: null, quantity: 0 })
+            }
+            className="mr-2"
+          >
+            Cancel
+          </Button>
+          <Button
+            color="green"
+            onClick={restockItem}
+            disabled={loading.action || restockDialog.quantity <= 0}
+          >
+            {loading.action ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Restock Product"
             )}
           </Button>
         </DialogFooter>
